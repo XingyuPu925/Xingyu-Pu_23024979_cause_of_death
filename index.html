@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Causes - Artistic Visualization of Global Deaths</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Avenir Next', sans-serif;
+            color: #fff;
+        }
+        
+        #cosmic-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #title {
+            position: absolute;
+            top: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            opacity: 0.8;
+            margin-top: 0;
+        }
+        
+        #bubble-vis {
+            width: 90%;
+            height: 70%;
+            margin-top: 80px;
+        }
+        
+        .bubble {
+            stroke-width: 0.5px;
+            stroke: rgba(255,255,255,0.3);
+            transition: all 0.3s ease-out;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+        
+        .bubble:hover {
+            stroke: rgba(255,255,255,0.8);
+            stroke-width: 1.5px;
+            filter: drop-shadow(0 0 15px currentColor);
+        }
+        
+        .bubble-label {
+            font-size: 10px;
+            fill: #fff;
+            text-anchor: middle;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 0 0 3px #000;
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 250px;
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ff8a00;
+        }
+        
+        .tooltip-value {
+            font-size: 1.2em;
+            color: #e52e71;
+        }
+        
+        #stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+        
+        .legend-text {
+            font-size: 12px;
+        }
+        
+        /* Navigation buttons styles */
+        #nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .nav-button {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .nav-button:disabled {
+            background: rgba(255,255,255,0.3);
+            cursor: default;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="stars"></div>
+    
+    <div id="cosmic-container">
+        <div id="title">
+            <h1>COSMIC CAUSES</h1>
+            <h2>Global Deaths Visualized as Celestial Bodies</h2>
+        </div>
+        
+        <!-- Navigation buttons added here -->
+        <div id="nav-buttons">
+            <button class="nav-button" onclick="window.location.href='index.html'" disabled>Bubble View</button>
+            <button class="nav-button" onclick="window.location.href='stacked.html'">Stacked View</button>
+            <button class="nav-button" onclick="window.location.href='heatmap.html'">Heatmap</button>
+            <button class="nav-button" onclick="window.location.href='radar.html'">Radar View</button>
+        </div>
+        
+        <div id="bubble-vis"></div>
+        
+        <div class="tooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-value"></div>
+        </div>
+        
+        <div id="legend"></div>
+    </div>
+
+    <script>
+        // 创建星空背景
+        function createStars() {
+            const stars = d3.select("#stars");
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                stars.append("div")
+                    .attr("class", "star")
+                    .style("width", Math.random() * 3 + "px")
+                    .style("height", Math.random() * 3 + "px")
+                    .style("left", Math.random() * 100 + "%")
+                    .style("top", Math.random() * 100 + "%")
+                    .style("--duration", Math.random() * 5 + 3 + "s")
+                    .style("animation-delay", Math.random() * 5 + "s");
+            }
+        }
+        
+        // 数据
+        const data = [
+            { cause: "Cardiovascular diseases", deaths: 186591929, color: "#ff8a00" },
+            { cause: "Cancer", deaths: 104021332, color: "#e52e71" },
+            { cause: "Lower respiratory infections", deaths: 25041269, color: "#b5179e" },
+            { cause: "Diabetes", deaths: 15409833, color: "#7209b7" },
+            { cause: "Chronic respiratory diseases", deaths: 40016895, color: "#560bad" },
+            { cause: "Road injuries", deaths: 11682433, color: "#480ca8" },
+            { cause: "HIV/AIDS", deaths: 9028405, color: "#3a0ca3" },
+            { cause: "Self-harm", deaths: 7682558, color: "#3f37c9" }
+        ];
+        
+        // 创建可视化
+        function createVisualization() {
+            const container = d3.select("#bubble-vis");
+            const width = container.node().clientWidth;
+            const height = container.node().clientHeight;
+            const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+            
+            // 创建SVG画布
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            // 创建力导向布局模拟
+            const simulation = d3.forceSimulation(data)
+                .force("charge", d3.forceManyBody().strength(5))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.deaths) / 800))
+                .force("x", d3.forceX(width / 2).strength(0.05))
+                .force("y", d3.forceY(height / 2).strength(0.05));
+            
+            // 气泡大小比例尺
+            const size = d3.scaleSqrt()
+                .domain([0, d3.max(data, d => d.deaths)])
+                .range([10, 80]);
+            
+            // 创建气泡
+            const bubbles = svg.selectAll(".bubble")
+                .data(data)
+                .enter()
+                .append("g")
+                .attr("class", "bubble-group");
+            
+            bubbles.append("circle")
+                .attr("class", "bubble")
+                .attr("r", d => size(d.deaths))
+                .attr("fill", d => d.color)
+                .attr("opacity", 0.9)
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("opacity", 1);
+                    
+                    // 显示工具提示
+                    tooltip.style("opacity", 1)
+                        .html(`<div class="tooltip-title">${d.cause}</div>
+                               <div class="tooltip-value">${d3.format(",")(d.deaths)} deaths</div>`)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 40) + "px");
+                    
+                    // 高亮当前气泡
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr("r", size(d.deaths) * 1.1);
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this).attr("opacity", 0.9);
+                    tooltip.style("opacity", 0);
+                    
+                    // 恢复原始大小
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr("r", size(d.deaths));
+                });
+            
+            // 添加气泡标签
+            bubbles.append("text")
+                .attr("class", "bubble-label")
+                .text(d => d.cause.split(" ")[0]) // 只显示第一个单词
+                .attr("dy", "0.3em");
+            
+            // 更新气泡位置
+            simulation.on("tick", () => {
+                bubbles.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+            
+            // 创建图例
+            const legend = d3.select("#legend");
+            const legendItems = legend.selectAll(".legend-item")
+                .data(data)
+                .enter()
+                .append("div")
+                .attr("class", "legend-item");
+            
+            legendItems.append("div")
+                .attr("class", "legend-color")
+                .style("background-color", d => d.color);
+                
+            legendItems.append("div")
+                .attr("class", "legend-text")
+                .text(d => d.cause);
+            
+            // 工具提示
+            const tooltip = d3.select(".tooltip");
+        }
+        
+        // 初始化
+        createStars();
+        createVisualization();
+        
+        // 响应窗口大小变化
+        window.addEventListener('resize', function() {
+            d3.select("#bubble-vis").select("svg").remove();
+            createVisualization();
+        });
+    </script>
+</body>
+</html>

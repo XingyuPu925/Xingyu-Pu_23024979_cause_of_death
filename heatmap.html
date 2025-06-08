@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Causes - HIV/AIDS Deaths Heatmap</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Avenir Next', sans-serif;
+            color: #fff;
+        }
+        
+        #cosmic-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #title {
+            position: absolute;
+            top: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            opacity: 0.8;
+            margin-top: 0;
+        }
+        
+        #heatmap {
+            width: 90%;
+            height: 70%;
+            margin-top: 80px;
+        }
+        
+        .heat-cell {
+            stroke: rgba(255,255,255,0.1);
+            stroke-width: 1px;
+            transition: all 0.3s ease;
+        }
+        
+        .heat-cell:hover {
+            stroke: rgba(255,255,255,0.8);
+            stroke-width: 2px;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        
+        .axis text {
+            fill: #fff;
+            font-size: 12px;
+        }
+        
+        .axis path,
+        .axis line {
+            stroke: rgba(255,255,255,0.2);
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 250px;
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ff8a00;
+        }
+        
+        .tooltip-value {
+            font-size: 1.2em;
+            color: #e52e71;
+        }
+        
+        #stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .legend-title {
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        
+        .legend-gradient {
+            height: 20px;
+            width: 200px;
+            background: linear-gradient(90deg, #3a0ca3, #3f37c9, #4cc9f0);
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 200px;
+        }
+        
+        .legend-label {
+            font-size: 10px;
+        }
+        
+        #nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .nav-button {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="stars"></div>
+    
+    <div id="cosmic-container">
+        <div id="title">
+            <h1>COSMIC CAUSES</h1>
+            <h2>HIV/AIDS Deaths Heatmap</h2>
+        </div>
+        
+         <div id="nav-buttons">
+            <button class="nav-button" onclick="window.location.href='index.html'">Bubble View</button>
+            <button class="nav-button" onclick="window.location.href='stacked.html'">Stacked View</button>
+            <button class="nav-button" onclick="window.location.href='heatmap.html'" disabled>Heatmap</button>
+            <button class="nav-button" onclick="window.location.href='radar.html'" >Radar View</button>
+        </div>
+        
+        <div id="heatmap"></div>
+        
+        <div class="tooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-value"></div>
+        </div>
+        
+        <div id="legend">
+            <div class="legend-title">HIV/AIDS Deaths</div>
+            <div class="legend-gradient"></div>
+            <div class="legend-labels">
+                <div class="legend-label">Low</div>
+                <div class="legend-label">High</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 创建星空背景
+        function createStars() {
+            const stars = d3.select("#stars");
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                stars.append("div")
+                    .attr("class", "star")
+                    .style("width", Math.random() * 3 + "px")
+                    .style("height", Math.random() * 3 + "px")
+                    .style("left", Math.random() * 100 + "%")
+                    .style("top", Math.random() * 100 + "%")
+                    .style("--duration", Math.random() * 5 + 3 + "s")
+                    .style("animation-delay", Math.random() * 5 + "s");
+            }
+        }
+        
+        // 数据
+        const hivData = [
+            { entity: "World", deaths: 863837 },
+            { entity: "African Union", deaths: 645652 },
+            { entity: "Africa", deaths: 645652 },
+            { entity: "Sub-Saharan Africa - World Bank region", deaths: 643703 },
+            { entity: "African Region", deaths: 635623 },
+            { entity: "Commonwealth", deaths: 553262 },
+            { entity: "Commonwealth Middle Income", deaths: 366484 },
+            { entity: "World Bank Lower Middle Income", deaths: 338846 },
+            { entity: "G20", deaths: 280864 },
+            { entity: "Middle SDI", deaths: 278034 }
+        ];
+        
+        // 创建可视化
+        function createVisualization() {
+            const container = d3.select("#heatmap");
+            const width = container.node().clientWidth;
+            const height = container.node().clientHeight;
+            const margin = { top: 40, right: 20, bottom: 60, left: 150 };
+            
+            // 创建SVG画布
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            // 定义图表区域
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // 创建比例尺
+            const x = d3.scaleBand()
+                .domain(["HIV/AIDS Deaths"])
+                .range([0, chartWidth])
+                .padding(0.1);
+            
+            const y = d3.scaleBand()
+                .domain(hivData.map(d => d.entity))
+                .range([0, chartHeight])
+                .padding(0.1);
+            
+            // 颜色比例尺
+            const color = d3.scaleSequential()
+                .domain([0, d3.max(hivData, d => d.deaths)])
+                .interpolator(d3.interpolateHcl("#3a0ca3", "#4cc9f0"));
+            
+            // 创建热力单元
+            chart.selectAll(".heat-cell")
+                .data(hivData)
+                .enter()
+                .append("rect")
+                .attr("class", "heat-cell")
+                .attr("x", 0)
+                .attr("y", d => y(d.entity))
+                .attr("width", x.bandwidth())
+                .attr("height", y.bandwidth())
+                .attr("fill", d => color(d.deaths))
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("opacity", 0.8);
+                    
+                    // 显示工具提示
+                    tooltip.style("opacity", 1)
+                        .html(`<div class="tooltip-title">${d.entity}</div>
+                               <div class="tooltip-value">${d3.format(",")(d.deaths)} deaths</div>`)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 40) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("opacity", 1);
+                    tooltip.style("opacity", 0);
+                });
+            
+            // 添加数值标签
+            chart.selectAll(".heat-label")
+                .data(hivData)
+                .enter()
+                .append("text")
+                .attr("class", "heat-label")
+                .attr("x", x.bandwidth() / 2)
+                .attr("y", d => y(d.entity) + y.bandwidth() / 2)
+                .attr("dy", "0.35em")
+                .attr("text-anchor", "middle")
+                .text(d => d3.format(".2s")(d.deaths))
+                .style("fill", d => d.deaths > d3.max(hivData, d => d.deaths) / 2 ? "white" : "white")
+                .style("font-size", "10px")
+                .style("font-weight", "bold");
+            
+            // 添加Y轴标签
+            chart.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-0.5em")
+                .attr("dy", "0.15em")
+                .style("font-size", "11px");
+            
+            // 工具提示
+            const tooltip = d3.select(".tooltip");
+        }
+        
+        // 初始化
+        createStars();
+        createVisualization();
+        
+        // 响应窗口大小变化
+        window.addEventListener('resize', function() {
+            d3.select("#heatmap").select("svg").remove();
+            createVisualization();
+        });
+    </script>
+</body>
+</html>

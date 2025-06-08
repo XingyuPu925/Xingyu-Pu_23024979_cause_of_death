@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Causes - Deaths by Country</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Avenir Next', sans-serif;
+            color: #fff;
+        }
+        
+        #cosmic-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #title {
+            position: absolute;
+            top: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            opacity: 0.8;
+            margin-top: 0;
+        }
+        
+        #stacked-chart {
+            width: 90%;
+            height: 70%;
+            margin-top: 80px;
+        }
+        
+        .bar-group {
+            transition: all 0.3s ease;
+        }
+        
+        .bar {
+            stroke-width: 0.5px;
+            stroke: rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+        
+        .bar:hover {
+            stroke: rgba(255,255,255,0.8);
+            stroke-width: 1.5px;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        
+        .axis text {
+            fill: #fff;
+            font-size: 12px;
+        }
+        
+        .axis path,
+        .axis line {
+            stroke: rgba(255,255,255,0.2);
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 250px;
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ff8a00;
+        }
+        
+        .tooltip-value {
+            font-size: 1.2em;
+            color: #e52e71;
+        }
+        
+        #stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 80%;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+        
+        .legend-text {
+            font-size: 12px;
+        }
+        
+        #nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .nav-button {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="stars"></div>
+    
+    <div id="cosmic-container">
+        <div id="title">
+            <h1>COSMIC CAUSES</h1>
+            <h2>Deaths by Country - Stacked View</h2>
+        </div>
+        
+        <div id="nav-buttons">
+            <button class="nav-button" onclick="window.location.href='index.html'">Bubble View</button>
+            <button class="nav-button" onclick="window.location.href='stacked.html'" disabled>Stacked View</button>
+            <button class="nav-button" onclick="window.location.href='heatmap.html'">Heatmap</button>
+            <button class="nav-button" onclick="window.location.href='radar.html'">Radar View</button>
+        </div>
+        
+        <div id="stacked-chart"></div>
+        
+        <div class="tooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-value"></div>
+        </div>
+        
+        <div id="legend"></div>
+    </div>
+
+    <script>
+        // 创建星空背景
+        function createStars() {
+            const stars = d3.select("#stars");
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                stars.append("div")
+                    .attr("class", "star")
+                    .style("width", Math.random() * 3 + "px")
+                    .style("height", Math.random() * 3 + "px")
+                    .style("left", Math.random() * 100 + "%")
+                    .style("top", Math.random() * 100 + "%")
+                    .style("--duration", Math.random() * 5 + 3 + "s")
+                    .style("animation-delay", Math.random() * 5 + "s");
+            }
+        }
+        
+        // 数据
+        const countryData = [
+            { 
+                country: "Brazil",
+                causes: {
+                    "Cardiovascular diseases": 397993,
+                    "Cancer": 266014,
+                    "Lower respiratory infections": 88641,
+                    "Diabetes": 65366,
+                    "Chronic respiratory diseases": 76551,
+                    "Road injuries": 44529,
+                    "HIV/AIDS": 15561,
+                    "Self-harm": 13503
+                }
+            },
+            { 
+                country: "China",
+                causes: {
+                    "Cardiovascular diseases": 4584273,
+                    "Cancer": 2716551,
+                    "Lower respiratory infections": 185264,
+                    "Diabetes": 172892,
+                    "Chronic respiratory diseases": 1085273,
+                    "Road injuries": 250025,
+                    "HIV/AIDS": 31746,
+                    "Self-harm": 121217
+                }
+            },
+            { 
+                country: "Germany",
+                causes: {
+                    "Cardiovascular diseases": 364285,
+                    "Cancer": 274088,
+                    "Lower respiratory infections": 25096,
+                    "Diabetes": 22363,
+                    "Chronic respiratory diseases": 45165,
+                    "Road injuries": 4468,
+                    "HIV/AIDS": 421,
+                    "Self-harm": 11664
+                }
+            },
+            { 
+                country: "India",
+                causes: {
+                    "Cardiovascular diseases": 2574410,
+                    "Cancer": 932587,
+                    "Lower respiratory infections": 433661,
+                    "Diabetes": 273089,
+                    "Chronic respiratory diseases": 1168381,
+                    "Road injuries": 211975,
+                    "HIV/AIDS": 46298,
+                    "Self-harm": 195336
+                }
+            },
+            { 
+                country: "United Kingdom",
+                causes: {
+                    "Cardiovascular diseases": 188113,
+                    "Cancer": 195999,
+                    "Lower respiratory infections": 41877,
+                    "Diabetes": 6368,
+                    "Chronic respiratory diseases": 51879,
+                    "Road injuries": 2696,
+                    "HIV/AIDS": 233,
+                    "Self-harm": 5618
+                }
+            },
+            { 
+                country: "United States",
+                causes: {
+                    "Cardiovascular diseases": 957455,
+                    "Cancer": 773895,
+                    "Lower respiratory infections": 81921,
+                    "Diabetes": 77719,
+                    "Chronic respiratory diseases": 224988,
+                    "Road injuries": 41362,
+                    "HIV/AIDS": 7053,
+                    "Self-harm": 45349
+                }
+            }
+        ];
+        
+        // 颜色映射
+        const colorMap = {
+            "Cardiovascular diseases": "#ff8a00",
+            "Cancer": "#e52e71",
+            "Lower respiratory infections": "#b5179e",
+            "Diabetes": "#7209b7",
+            "Chronic respiratory diseases": "#560bad",
+            "Road injuries": "#480ca8",
+            "HIV/AIDS": "#3a0ca3",
+            "Self-harm": "#3f37c9"
+        };
+        
+        // 准备堆叠数据
+        function prepareStackedData() {
+            const causes = Object.keys(countryData[0].causes);
+            const stackedData = countryData.map(d => {
+                const result = { country: d.country };
+                causes.forEach(cause => {
+                    result[cause] = d.causes[cause];
+                });
+                return result;
+            });
+            
+            const stack = d3.stack().keys(causes);
+            return stack(stackedData);
+        }
+        
+        // 创建可视化
+        function createVisualization() {
+            const container = d3.select("#stacked-chart");
+            const width = container.node().clientWidth;
+            const height = container.node().clientHeight;
+            const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+            
+            // 创建SVG画布
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            // 定义图表区域
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            const chart = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // 准备数据
+            const stackedData = prepareStackedData();
+            const countries = countryData.map(d => d.country);
+            
+            // 创建比例尺
+            const x = d3.scaleBand()
+                .domain(countries)
+                .range([0, chartWidth])
+                .padding(0.3);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(stackedData[stackedData.length - 1], d => d[1])])
+                .range([chartHeight, 0])
+                .nice();
+            
+            // 创建坐标轴
+            const xAxis = chart.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${chartHeight})`)
+                .call(d3.axisBottom(x));
+            
+            const yAxis = chart.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(".2s")));
+            
+            // 创建堆叠条形图
+            const barGroups = chart.selectAll(".bar-group")
+                .data(stackedData)
+                .enter()
+                .append("g")
+                .attr("class", "bar-group")
+                .attr("fill", d => colorMap[d.key]);
+            
+            barGroups.selectAll("rect")
+                .data(d => d)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", d => x(d.data.country))
+                .attr("y", d => y(d[1]))
+                .attr("height", d => y(d[0]) - y(d[1]))
+                .attr("width", x.bandwidth())
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("opacity", 0.8);
+                    
+                    // 显示工具提示
+                    const cause = d3.select(this.parentNode).datum().key;
+                    const value = d[1] - d[0];
+                    
+                    tooltip.style("opacity", 1)
+                        .html(`<div class="tooltip-title">${d.data.country} - ${cause}</div>
+                               <div class="tooltip-value">${d3.format(",")(value)} deaths</div>`)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 40) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("opacity", 1);
+                    tooltip.style("opacity", 0);
+                });
+            
+            // 添加国家标签
+            chart.selectAll(".country-label")
+                .data(countries)
+                .enter()
+                .append("text")
+                .attr("class", "country-label")
+                .attr("x", d => x(d) + x.bandwidth() / 2)
+                .attr("y", chartHeight + 35)
+                .attr("text-anchor", "middle")
+                .text(d => d)
+                .style("fill", "white")
+                .style("font-size", "10px");
+            
+            // 创建图例
+            const legend = d3.select("#legend");
+            const causes = Object.keys(colorMap);
+            
+            const legendItems = legend.selectAll(".legend-item")
+                .data(causes)
+                .enter()
+                .append("div")
+                .attr("class", "legend-item");
+            
+            legendItems.append("div")
+                .attr("class", "legend-color")
+                .style("background-color", d => colorMap[d]);
+                
+            legendItems.append("div")
+                .attr("class", "legend-text")
+                .text(d => d);
+            
+            // 工具提示
+            const tooltip = d3.select(".tooltip");
+        }
+        
+        // 初始化
+        createStars();
+        createVisualization();
+        
+        // 响应窗口大小变化
+        window.addEventListener('resize', function() {
+            d3.select("#stacked-chart").select("svg").remove();
+            createVisualization();
+        });
+    </script>
+</body>
+</html>

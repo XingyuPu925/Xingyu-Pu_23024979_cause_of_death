@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Causes - Death Proportions Radar Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Avenir Next', sans-serif;
+            color: #fff;
+        }
+        
+        #cosmic-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #title {
+            position: absolute;
+            top: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            opacity: 0.8;
+            margin-top: 0;
+        }
+        
+        #radar-chart {
+            width: 90%;
+            height: 70%;
+            margin-top: 80px;
+        }
+        
+        .radar-area {
+            fill-opacity: 0.7;
+            stroke-width: 1.5px;
+            transition: all 0.3s ease;
+        }
+        
+        .radar-area:hover {
+            fill-opacity: 0.9;
+            stroke-width: 2.5px;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        
+        .radar-axis {
+            stroke: rgba(255,255,255,0.3);
+            stroke-width: 1px;
+        }
+        
+        .radar-label {
+            font-size: 11px;
+            fill: #fff;
+            text-anchor: middle;
+        }
+        
+        .radar-grid {
+            stroke: rgba(255,255,255,0.1);
+            stroke-width: 0.5px;
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 250px;
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ff8a00;
+        }
+        
+        .tooltip-value {
+            font-size: 1.2em;
+            color: #e52e71;
+        }
+        
+        #stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 80%;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+        
+        .legend-text {
+            font-size: 12px;
+        }
+        
+        #nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .nav-button {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="stars"></div>
+    
+    <div id="cosmic-container">
+        <div id="title">
+            <h1>COSMIC CAUSES</h1>
+            <h2>Death Cause Proportions by Country - Radar Chart</h2>
+        </div>
+        
+        <div id="nav-buttons">
+            <button class="nav-button" onclick="window.location.href='index.html'">Bubble View</button>
+            <button class="nav-button" onclick="window.location.href='stacked.html'">Stacked View</button>
+            <button class="nav-button" onclick="window.location.href='heatmap.html'">Heatmap</button>
+            <button class="nav-button" onclick="window.location.href='radar.html'" disabled>Radar View</button>
+        </div>
+        
+        <div id="radar-chart"></div>
+        
+        <div class="tooltip">
+            <div class="tooltip-title"></div>
+            <div class="tooltip-value"></div>
+        </div>
+        
+        <div id="legend"></div>
+    </div>
+
+    <script>
+        // 创建星空背景
+        function createStars() {
+            const stars = d3.select("#stars");
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                stars.append("div")
+                    .attr("class", "star")
+                    .style("width", Math.random() * 3 + "px")
+                    .style("height", Math.random() * 3 + "px")
+                    .style("left", Math.random() * 100 + "%")
+                    .style("top", Math.random() * 100 + "%")
+                    .style("--duration", Math.random() * 5 + 3 + "s")
+                    .style("animation-delay", Math.random() * 5 + "s");
+            }
+        }
+        
+        // 数据
+        const radarData = [
+            {
+                country: "Brazil",
+                causes: {
+                    "Cardiovascular": 0.41108269517991897,
+                    "Cancer": 0.2747630035593364,
+                    "Respiratory Infections": 0.09155633687889786,
+                    "Diabetes": 0.0675158393567992,
+                    "Chronic Respiratory": 0.0790687057277841,
+                    "Road Injuries": 0.0459935258501195,
+                    "HIV/AIDS": 0.016072789771917395,
+                    "Self-harm": 0.013947103675226565
+                },
+                color: "#ff8a00"
+            },
+            {
+                country: "China",
+                causes: {
+                    "Cardiovascular": 0.5011645587997517,
+                    "Cancer": 0.29698036817877654,
+                    "Respiratory Infections": 0.020253538744633492,
+                    "Diabetes": 0.018900999765940354,
+                    "Chronic Respiratory": 0.11864484602515665,
+                    "Road Injuries": 0.027333378447118646,
+                    "HIV/AIDS": 0.003470554673261588,
+                    "Self-harm": 0.013251755365360987
+                },
+                color: "#e52e71"
+            },
+            {
+                country: "India",
+                causes: {
+                    "Cardiovascular": 0.4411456513547475,
+                    "Cancer": 0.15980620785343821,
+                    "Respiratory Infections": 0.07431126522665432,
+                    "Diabetes": 0.04679597452729621,
+                    "Chronic Respiratory": 0.20021138718211598,
+                    "Road Injuries": 0.03632360402807734,
+                    "HIV/AIDS": 0.007933530931911428,
+                    "Self-harm": 0.03347237889575901
+                },
+                color: "#4cc9f0"
+            },
+            {
+                country: "United States",
+                causes: {
+                    "Cardiovascular": 0.43328813952036027,
+                    "Cancer": 0.35021961839889,
+                    "Respiratory Infections": 0.037072653730616516,
+                    "Diabetes": 0.03517107427020892,
+                    "Chronic Respiratory": 0.10181641114664065,
+                    "Road Injuries": 0.018718022284954533,
+                    "HIV/AIDS": 0.0031917753294275985,
+                    "Self-harm": 0.020522305318901483
+                },
+                color: "#3a0ca3"
+            }
+        ];
+        
+        // 创建雷达图
+        function createRadarChart() {
+            const container = d3.select("#radar-chart");
+            const width = container.node().clientWidth;
+            const height = container.node().clientHeight;
+            const margin = { top: 40, right: 40, bottom: 40, left: 40 };
+            
+            // 创建SVG画布
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            // 定义雷达图区域
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            const radius = Math.min(chartWidth, chartHeight) / 2;
+            
+            const chart = svg.append("g")
+                .attr("transform", `translate(${width/2},${height/2})`);
+            
+            // 获取所有死因
+            const causes = Object.keys(radarData[0].causes);
+            const numAxes = causes.length;
+            
+            // 雷达图角度比例尺
+            const angleSlice = Math.PI * 2 / numAxes;
+            
+            // 雷达图半径比例尺
+            const rScale = d3.scaleLinear()
+                .domain([0, 0.5]) // 最大比例为50%
+                .range([0, radius * 0.8]);
+            
+            // 创建雷达图网格
+            const levels = 5;
+            for (let level = 1; level <= levels; level++) {
+                const levelFactor = radius * 0.8 * (level / levels);
+                
+                // 绘制网格圆环
+                chart.append("circle")
+                    .attr("class", "radar-grid")
+                    .attr("r", levelFactor)
+                    .attr("fill", "none");
+                
+                // 添加网格标签
+                chart.append("text")
+                    .attr("class", "radar-label")
+                    .attr("x", 0)
+                    .attr("y", -levelFactor + 5)
+                    .text(d3.format(".0%")(level * 0.1));
+            }
+            
+            // 创建雷达图轴线
+            for (let i = 0; i < numAxes; i++) {
+                const angle = angleSlice * i - Math.PI / 2;
+                
+                // 绘制轴线
+                chart.append("line")
+                    .attr("class", "radar-axis")
+                    .attr("x1", 0)
+                    .attr("y1", 0)
+                    .attr("x2", radius * 0.8 * Math.cos(angle))
+                    .attr("y2", radius * 0.8 * Math.sin(angle));
+                
+                // 添加轴标签
+                chart.append("text")
+                    .attr("class", "radar-label")
+                    .attr("x", (radius * 0.9) * Math.cos(angle))
+                    .attr("y", (radius * 0.9) * Math.sin(angle))
+                    .text(causes[i])
+                    .style("font-size", "10px")
+                    .style("text-anchor", "middle");
+            }
+            
+            // 雷达图区域生成器
+            const radarLine = d3.lineRadial()
+                .curve(d3.curveLinearClosed)
+                .radius(d => rScale(d.value))
+                .angle((d, i) => angleSlice * i - Math.PI / 2);
+            
+            // 为每个国家创建雷达图区域
+            radarData.forEach(country => {
+                // 准备数据
+                const countryValues = [];
+                causes.forEach(cause => {
+                    countryValues.push({
+                        axis: cause,
+                        value: country.causes[cause] || 0
+                    });
+                });
+                
+                // 绘制雷达图区域
+                chart.append("path")
+                    .datum(countryValues)
+                    .attr("class", "radar-area")
+                    .attr("d", radarLine)
+                    .attr("fill", country.color)
+                    .attr("stroke", country.color)
+                    .on("mouseover", function(event) {
+                        d3.select(this).attr("opacity", 0.9);
+                        
+                        // 显示工具提示
+                        tooltip.style("opacity", 1)
+                            .html(`<div class="tooltip-title">${country.country}</div>`)
+                            .style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 40) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).attr("opacity", 0.7);
+                        tooltip.style("opacity", 0);
+                    });
+            });
+            
+            // 创建图例
+            const legend = d3.select("#legend");
+            const legendItems = legend.selectAll(".legend-item")
+                .data(radarData)
+                .enter()
+                .append("div")
+                .attr("class", "legend-item");
+            
+            legendItems.append("div")
+                .attr("class", "legend-color")
+                .style("background-color", d => d.color);
+                
+            legendItems.append("div")
+                .attr("class", "legend-text")
+                .text(d => d.country);
+            
+            // 工具提示
+            const tooltip = d3.select(".tooltip");
+        }
+        
+        // 初始化
+        createStars();
+        createRadarChart();
+        
+        // 响应窗口大小变化
+        window.addEventListener('resize', function() {
+            d3.select("#radar-chart").select("svg").remove();
+            createRadarChart();
+        });
+    </script>
+</body>
+</html>
